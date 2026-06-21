@@ -46,6 +46,41 @@ app.get("/feed", async (req, res, next) => {
   }
 });
 
+//delete the user fromt the databse
+app.delete("/user", async (req, res, next) => {
+  const userEmail = req.body.email;
+  const userId = req.body.userId;
+
+  try {
+    // const deletedUser = await UserModel.findByIdAndDelete({ _id: userId });
+
+    const deletedUser = await UserModel.findOneAndDelete({ email: userEmail });
+    if (!deletedUser) {
+      return res.status(404).send("user not found with the provided email");
+    }
+    res.send("user deleted successfully");
+  } catch (err) {
+    res.status(500).send("Error deleting the user: " + err.message);
+  }
+});
+//update the user from the database
+app.patch("/user", async (req, res, next) => {
+  const userEmail = req.body.email;
+  const updateData = req.body;
+  try {
+    const user = await UserModel.findOneAndUpdate(
+      { email: userEmail },
+      updateData,
+      { new: true },
+    );
+    if (!user) {
+      return res.status(404).send("user not found with the provided email");
+    }
+    res.send(user,"user updated successfully");
+  } catch (err) {
+    res.status(500).send("Error updating the user: " + err.message);
+  }
+});
 // app.get('/admin',AdminAuths)
 // // app.get('/user',(req,res,next)=>{
 // //     console.log("user");
