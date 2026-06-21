@@ -63,24 +63,126 @@ app.delete("/user", async (req, res, next) => {
     res.status(500).send("Error deleting the user: " + err.message);
   }
 });
-//update the user from the database
+// update the user from the database
 app.patch("/user", async (req, res, next) => {
   const userEmail = req.body.email;
-  const updateData = req.body;
+  const ALLOWED_UPDATES = [
+    "firstName",
+    "LastName",
+    "age",
+    "gender",
+    "photoUrl",
+    "about",
+    "skills",
+  ];
+  // build the fields to update from everything EXCEPT the email matcher
+  const { email, ...updateData } = req.body;
+
+  // reject the whole request if any field is not allowed to be edited
+  const isUpdateAllowed = Object.keys(updateData).every((key) =>
+    ALLOWED_UPDATES.includes(key)
+  );
+  if (!isUpdateAllowed) {
+    return res
+      .status(400)
+      .send("Update not allowed." )
+  }
+
   try {
     const user = await UserModel.findOneAndUpdate(
       { email: userEmail },
       updateData,
-      { new: true },
+      { new: true, runValidators: true } // this option will return the updated document and also it will run the validators defined in the schema for the updated fields,
     );
     if (!user) {
       return res.status(404).send("user not found with the provided email");
     }
-    res.send(user,"user updated successfully");
+    res.send({ message: "user updated successfully", user });
   } catch (err) {
     res.status(500).send("Error updating the user: " + err.message);
   }
 });
+//update the user from the database using userId
+app.patch("/user/:userId", async (req, res, next) => {
+  const userId = req.params?.userId;
+  const ALLOWED_UPDATES = [
+    "firstName",
+    "LastName",
+    "age",
+    "gender",
+    "photoUrl",
+    "about",
+    "skills",
+  ];
+  // email is NOT in ALLOWED_UPDATES, so trying to edit it will be rejected
+  const updateData = req.body;
+
+  // reject the whole request if any field is not allowed to be edited
+  const isUpdateAllowed = Object.keys(updateData).every((key) =>
+    ALLOWED_UPDATES.includes(key)
+  );
+  if (!isUpdateAllowed) {
+    return res
+      .status(400)
+      .send("Update not allowed. You can only edit: " + ALLOWED_UPDATES.join(", "));
+  }
+  // only validate skills if they are being updated
+  if (updateData.skills && updateData.skills.length > 10) {
+    return res.status(400).send("You can not add more than 10 skills");
+  }
+
+  try {
+    const user = await UserModel.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true } // this option will return the updated document and also it will run the validators defined in the schema for the updated fields,
+    );
+    if (!user) {
+      return res.status(404).send("user not found with the provided id");
+    }
+    res.send({ message: "user updated successfully", user });
+  } catch (err) {
+    res.status(500).send("Error updating the user: " + err.message);
+  }
+});
+// ---- NEW: userId-based update (email is now a forbidden field, so editing it is rejected) ----
+// app.patch("/user", async (req, res, next) => {
+//   const ALLOWED_UPDATES = [
+//     "firstName",
+//     "LastName",
+//     "age",
+//     "gender",
+//     "photoUrl",
+//     "about",
+//     "skills",
+//   ];
+//   // identify the user by userId, NOT email — everything else is update data
+//   const { userId, ...updateData } = req.body;
+
+//   // reject the whole request if any field is not allowed to be edited (e.g. email, password)
+//   const isUpdateAllowed = Object.keys(updateData).every((key) =>
+//     ALLOWED_UPDATES.includes(key)
+//   );
+//   if (!isUpdateAllowed) {
+//     return res
+//       .status(400)
+//       .send("Update not allowed. You can only edit: " + ALLOWED_UPDATES.join(", "));
+//   }
+
+//   try {
+//     const user = await UserModel.findByIdAndUpdate(
+//       userId,
+//       updateData,
+//       { new: true, runValidators: true } // this option will return the updated document and also it will run the validators defined in the schema for the updated fields,
+//     );
+//     if (!user) {
+//       return res.status(404).send("user not found with the provided id");
+//     }
+//     res.send({ message: "user updated successfully", user });
+//   } catch (err) {
+//     res.status(500).send("Error updating the user: " + err.message);
+//   }
+// });
 // app.get('/admin',AdminAuths)
 // // app.get('/user',(req,res,next)=>{
 // //     console.log("user");
