@@ -1,7 +1,7 @@
 const express = require("express");
 const { AdminAuths } = require("./middlewares/adminAuths.js");
 const app = express();
-app.use(express.json())// convert the incoming request body to json format and we can access the data in req.body in evey route handler
+app.use(express.json()); // convert the incoming request body to json format and we can access the data in req.body in evey route handler
 const connectDB = require("./config/database.js");
 const UserModel = require("./models/user.js");
 app.post("/signup", async (req, res, next) => {
@@ -20,6 +20,29 @@ app.post("/signup", async (req, res, next) => {
     res.send("user created successfully!");
   } catch (err) {
     res.status(400).send("Error saving the user: " + err.message);
+  }
+});
+
+app.get("/user", async (req, res, next) => {
+  const userEmails = req.body.email;
+  try {
+    const user = await UserModel.find({ email: userEmails });
+    if (!user || user.length === 0) {
+      return res.status(404).send("No users found with the provided email.");
+    } else {
+      res.send(user);
+    }
+  } catch (err) {
+    res.status(500).send("Error fetching users: " + err.message);
+  }
+});
+
+app.get("/feed", async (req, res, next) => {
+  try {
+    const users = await UserModel.find({});
+    res.send(users);
+  } catch (err) {
+    res.status(500).send("Error fetching users: " + err.message);
   }
 });
 
