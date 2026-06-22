@@ -6,8 +6,10 @@ const connectDB = require("./config/database.js");
 const UserModel = require("./models/user.js");
 const { validateSignupData } = require("./utils/validation.js");
 const bcrypt = require("bcrypt");
-
-
+const cookieParser = require("cookie-parser");
+var jwt = require("jsonwebtoken");
+app.use(cookieParser()); // this middleware will parse the cookies from the incoming request and make them available in req.cookies
+const { userAuths } = require("./middlewares/AdminAuths.js");
 app.post("/signup", async (req, res, next) => {
   try {
     validateSignupData(req); // validate the incoming request data
@@ -36,8 +38,17 @@ app.post("/login", async (req, res, next) => {
     if (!user) {
       return res.status(404).send("Invalid credentials!");
     }
-    const isPasswordMatch = await bcrypt.compare(password, user.password);
+
+    // const isPasswordMatch = await bcrypt.compare(password, user.password);
+    const isPasswordMatch = await user.validatePassword(password);
     if (isPasswordMatch) {
+      //  create the token
+      // const jwt_secret=process.env.jwt_secret
+      // const token = await jwt.sign({ _id: user._id }, jwt_secret, {
+      //   expiresIn: "12h",
+      // }); // create a JWT token with the user's ID and a secret key, valid for 12 hour
+      const token = await user.getJWT();
+      res.cookie("token", token); // set a cookie named "token" with the value "xyz" and make it HTTP-only
       res.send("login successful");
     } else {
       res.status(401).send("Invalid credentials!");
@@ -47,6 +58,27 @@ app.post("/login", async (req, res, next) => {
   }
 });
 
+app.get("/profile", userAuths, async (req, res, next) => {
+  const token = req.cookies?.token;
+  try {
+    // if (!token) {
+    //   return res.status(401).send("you are not authenticated");
+    // }
+    // const decoded = await jwt.verify(token, "dev-tinder@123$#@");
+    // const { _id } = decoded;
+    // console.log("_id===", _id);
+    // const user = await UserModel.findById(_id);
+    const user = req.user;
+    console.log(user);
+    res.send(user);
+  } catch (err) {
+    res.status(500).send("Error fetching user profile: " + err.message);
+  }
+});
+app.post("/sendConnectionRequest", userAuths, async (req, res, next) => {
+  const firstName = req.user.firstName;
+  res.send(`${firstName} is sending the connection request!`);
+});
 app.get("/user", async (req, res, next) => {
   const userEmails = req.body.email;
   try {
@@ -241,11 +273,12 @@ app.patch("/user/:userId", async (req, res, next) => {
 //     res.send("hello chandraprakash");
 
 // })
+const PORT = process.env.PORT;
 connectDB()
   .then(() => {
     console.log("connected to the database");
-    app.listen(3000, () => {
-      console.log("server is running on port 3000");
+    app.listen(PORT, () => {
+      console.log(`server is running on port ${PORT}`);
     });
   })
   .catch((err) => {
