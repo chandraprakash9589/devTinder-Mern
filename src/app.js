@@ -4,22 +4,46 @@ const app = express();
 app.use(express.json()); // convert the incoming request body to json format and we can access the data in req.body in evey route handler
 const connectDB = require("./config/database.js");
 const UserModel = require("./models/user.js");
+const { validateSignupData } = require("./utils/validation.js");
+const bcrypt = require("bcrypt");
+
+
 app.post("/signup", async (req, res, next) => {
-  // console.log(req.body)
-  // const userData = {
-  //   firsName: "chandraprakash",
-  //   LastName: "kushwaha",
-  //   email: "chandraprakashk9589@gmail.com",
-  //   password: "chandraprakash",
-  //   age: 22,
-  //   gender: "male",
-  // };
   try {
-    const user = new UserModel(req.body);
+    validateSignupData(req); // validate the incoming request data
+
+    //ENCRYPTION OF PASSWORD
+    const { firstName, lastName, password, email } = req.body;
+    const passwordHash = await bcrypt.hash(password, 10); // hash the password with a salt round of 10
+    console.log("passwordHash", passwordHash);
+    const user = new UserModel({
+      firstName,
+      lastName,
+      email,
+      password: passwordHash,
+    });
     await user.save();
     res.send("user created successfully!");
   } catch (err) {
     res.status(400).send("Error saving the user: " + err.message);
+  }
+});
+
+app.post("/login", async (req, res, next) => {
+  const { email, password } = req.body;
+  try {
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).send("Invalid credentials!");
+    }
+    const isPasswordMatch = await bcrypt.compare(password, user.password);
+    if (isPasswordMatch) {
+      res.send("login successful");
+    } else {
+      res.status(401).send("Invalid credentials!");
+    }
+  } catch (err) {
+    res.status(500).send("Error logging in: " + err.message);
   }
 });
 
@@ -80,19 +104,17 @@ app.patch("/user", async (req, res, next) => {
 
   // reject the whole request if any field is not allowed to be edited
   const isUpdateAllowed = Object.keys(updateData).every((key) =>
-    ALLOWED_UPDATES.includes(key)
+    ALLOWED_UPDATES.includes(key),
   );
   if (!isUpdateAllowed) {
-    return res
-      .status(400)
-      .send("Update not allowed." )
+    return res.status(400).send("Update not allowed.");
   }
 
   try {
     const user = await UserModel.findOneAndUpdate(
       { email: userEmail },
       updateData,
-      { new: true, runValidators: true } // this option will return the updated document and also it will run the validators defined in the schema for the updated fields,
+      { new: true, runValidators: true }, // this option will return the updated document and also it will run the validators defined in the schema for the updated fields,
     );
     if (!user) {
       return res.status(404).send("user not found with the provided email");
@@ -119,12 +141,14 @@ app.patch("/user/:userId", async (req, res, next) => {
 
   // reject the whole request if any field is not allowed to be edited
   const isUpdateAllowed = Object.keys(updateData).every((key) =>
-    ALLOWED_UPDATES.includes(key)
+    ALLOWED_UPDATES.includes(key),
   );
   if (!isUpdateAllowed) {
     return res
       .status(400)
-      .send("Update not allowed. You can only edit: " + ALLOWED_UPDATES.join(", "));
+      .send(
+        "Update not allowed. You can only edit: " + ALLOWED_UPDATES.join(", "),
+      );
   }
   // only validate skills if they are being updated
   if (updateData.skills && updateData.skills.length > 10) {
@@ -135,7 +159,7 @@ app.patch("/user/:userId", async (req, res, next) => {
     const user = await UserModel.findByIdAndUpdate(
       userId,
       updateData,
-      { new: true, runValidators: true } // this option will return the updated document and also it will run the validators defined in the schema for the updated fields,
+      { new: true, runValidators: true }, // this option will return the updated document and also it will run the validators defined in the schema for the updated fields,
     );
     if (!user) {
       return res.status(404).send("user not found with the provided id");

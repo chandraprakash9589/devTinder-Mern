@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-
+const validator = require("validator");
 const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
@@ -16,10 +16,20 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
+    validate(value) {
+      if (!validator.isEmail(value)) {
+        throw new Error("Email is not valid");
+      } 
   },
+},
   password: {
     type: String,
     required: true,
+       validate(value) {
+      if (!validator.isStrongPassword(value)) {
+        throw new Error("Enter the strong password");
+      } 
+  },
   },
   age: {
     type: Number,
@@ -35,7 +45,12 @@ const userSchema = new mongoose.Schema({
   },
   photoUrl:{
     type: String,
-    default:"https://fastly.picsum.photos/id/1/5000/3333.jpg?hmac=Asv2DU3rA_5D1xSe22xZK47WEAN0wjWeFOhzd13ujW4"
+    default:"https://fastly.picsum.photos/id/1/5000/3333.jpg?hmac=Asv2DU3rA_5D1xSe22xZK47WEAN0wjWeFOhzd13ujW4",
+     validate(value) {
+      if (!validator.isURL(value)) {
+        throw new Error("photo url is not valid");
+      } 
+  },
   },
   about:{
     type: String,
